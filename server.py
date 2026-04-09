@@ -1,147 +1,126 @@
-"""
-Wandering Patient Alert System — Serial Bridge
-------------------------------------------------
-Reads ESP32 JSON data over USB Serial and serves it
-to the browser dashboard via a local HTTP server.
+"""Patient Alert Dashboard - Sync Only (No Threads)"""
 
-Install dependencies:
-    pip install pyserial
-
-Run:
-    python server.py
-
-Then open: http://localhost:8080
-"""
-
+import streamlit as st
 import serial
 import serial.tools.list_ports
 import json
-import threading
-import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
+import time
+import warnings
+warnings.filterwarnings("ignore")
 
-# ── Configuration ─────────────────────────────────────────────
-BAUD_RATE = 115200
-HTTP_PORT = 8080
-# ──────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Patient Monitor", layout="wide")
 
-# Shared state
-state = {
-    "status": "CONNECTING",
-    "absent_ms": 0,
-    "alert": False,
-    "last_updated": "",
-    "log": []          # list of {time, message, type}
-}
-state_lock = threading.Lock()
+# State
+if "log" not in st.session_state:
+    st.session_state.log = []
+    st.session_state.status = "CONNECTING"
+    st.session_state.absent_ms = 0
+    st.session_state.alert = False
 
+if "ser" not in st.session_state:
+    st.session_state.ser = None
 
-def find_esp32_port():
-    """Auto-detect ESP32 COM port on Windows."""
-    ports = serial.tools.list_ports.comports()
-    for p in ports:
-        desc = p.description.upper()
-        if any(k in desc for k in ["CP210", "CH340", "UART", "USB SERIAL", "SILICON"]):
+# Find port
+def get_port():
+    all_ports = [p.device for p in serial.tools.list_ports.comports()]
+    print(f"[DEBUG] All ports: {all_ports}")
+    for p in serial.tools.list_ports.comports():
+        desc = p.description or ""
+        print(f"[DEBUG] Port {p.device}: {desc}")
+        if "CP210" in desc or "CH340" in desc:
+            print(f"[DEBUG] Selected: {p.device}")
             return p.device
-    # Fallback: return first available port
-    if ports:
-        return ports[0].device
+    if all_ports:
+        print(f"[DEBUG] Fallback to first: {all_ports[0]}")
+        return all_ports[0]
+    print("[DEBUG] No ports found!")
     return None
 
+# Connect
+if not st.session_state.ser:
+    port = get_port()
+    if port:
+        try:
+            print(f"[DEBUG] Opening {port}...")
+            st.session_state.ser = serial.Serial(port, 115200, timeout=0.2)
+            time.sleep(1)
+            st.session_state.ser.reset_input_buffer()
+            print(f"[DEBUG] Connected successfully")
+            st.session_state.log.insert(0, {"t": datetime.now().strftime("%H:%M:%S"), "m": f"✓ Connected {port}", "type": "success"})
+        except Exception as e:
+            print(f"[DEBUG] Connection failed: {e}")
+            st.session_state.ser = None
+    else:
+        print("[DEBUG] No port found to connect")
 
-def add_log(message, log_type="info"):
-    now = datetime.now().strftime("%H:%M:%S")
-    entry = {"time": now, "message": message, "type": log_type}
-    with state_lock:
-        state["log"].insert(0, entry)
-        if len(state["log"]) > 50:
-            state["log"].pop()
-
-
-def serial_reader():
-    add_log("Connecting to COM3...", "info")
+# Read
+if st.session_state.ser:
     try:
-        ser = serial.Serial("COM3", 115200, timeout=2)
-        time.sleep(2)
-        add_log("Connected to COM3", "info")
+        if st.session_state.ser.in_waiting:
+            line = st.session_state.ser.readline().decode("utf-8", errors="ignore").strip()
+            if line:
+                d = json.loads(line)
+                t = datetime.now().strftime("%H:%M:%S")
+                
+                if "event" in d:
+                    msgs = {
+                        "SYSTEM_START": "✓ Started",
+                        "PATIENT_LEFT": "👤 Patient left",
+                        "PATIENT_RETURNED": "✓ Patient returned",
+                        "ALERT_TRIGGERED": "🚨 ALERT!",
+                    }
+                    msg = msgs.get(d["event"], d["event"])
+                    typ = "alert" if "ALERT" in d["event"] else "warning" if "LEFT" in d["event"] else "success" if "RETURNED" in d["event"] else "info"
+                    st.session_state.log.insert(0, {"t": t, "m": msg, "type": typ})
+                
+                if "status" in d:
+                    st.session_state.status = d["status"]
+                    st.session_state.absent_ms = d.get("absent_ms", 0)
+                    st.session_state.alert = d.get("alert", False)
+                
+                if len(st.session_state.log) > 30:
+                    st.session_state.log = st.session_state.log[:30]
+    except:
+        pass
 
-        while True:
-            try:
-                line = ser.readline().decode("utf-8", errors="ignore").strip()
-                if not line:
-                    continue
-                data = json.loads(line)
-                with state_lock:
-                    state["last_updated"] = datetime.now().strftime("%H:%M:%S")
-                    if "event" in data:
-                        ev = data["event"]
-                        if ev == "SYSTEM_START":
-                            add_log("System started", "info")
-                        elif ev == "PATIENT_LEFT":
-                            add_log("Patient left the bed", "warning")
-                        elif ev == "PATIENT_RETURNED":
-                            add_log("Patient returned to bed", "success")
-                        elif ev == "ALERT_TRIGGERED":
-                            add_log("⚠ ALERT: Patient absent too long!", "alert")
-                    if "status" in data:
-                        state["status"] = data["status"]
-                        state["absent_ms"] = data.get("absent_ms", 0)
-                        state["alert"] = data.get("alert", False)
-            except json.JSONDecodeError:
-                pass
-            except Exception as e:
-                add_log(f"Read error: {e}", "error")
-                time.sleep(1)
+# UI
+st.title("🏥 Patient Alert System")
+st.divider()
 
-    except serial.SerialException as e:
-        add_log(f"Cannot open COM3: {e}", "error")
-        with state_lock:
-            state["status"] = "DISCONNECTED"
+c1, c2, c3 = st.columns(3)
+m, s = divmod(st.session_state.absent_ms // 1000, 60)
 
+with c1:
+    if st.session_state.alert:
+        st.error("🚨 ALERT")
+    elif "ABSENT" in st.session_state.status:
+        st.warning("⏱️ ABSENT")
+    else:
+        st.success("✓ IN BED")
 
-class DashboardHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass  # Suppress HTTP logs
+with c2:
+    st.metric("Time", f"{m}:{s:02d}")
 
-    def do_GET(self):
-        if self.path == "/":
-            self.serve_dashboard()
-        elif self.path == "/api/state":
-            self.serve_state()
+with c3:
+    st.metric("Status", st.session_state.status)
+
+st.divider()
+st.subheader("📋 Events")
+
+if st.session_state.log:
+    for e in st.session_state.log[:10]:
+        txt = f"[{e['t']}] {e['m']}"
+        if e["type"] == "alert":
+            st.error(txt)
+        elif e["type"] == "warning":
+            st.warning(txt)
+        elif e["type"] == "success":
+            st.success(txt)
         else:
-            self.send_error(404)
+            st.info(txt)
+else:
+    st.info("Waiting...")
 
-    def serve_state(self):
-        with state_lock:
-            data = json.dumps(state)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(data.encode())
-
-    def serve_dashboard(self):
-        html = open("dashboard.html", "rb").read()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(html)
-
-
-if __name__ == "__main__":
-    print("=" * 50)
-    print("  Wandering Patient Alert System")
-    print("  Dashboard → http://localhost:8080")
-    print("=" * 50)
-
-    # Start serial reader in background
-    t = threading.Thread(target=serial_reader, daemon=True)
-    t.start()
-
-    # Start HTTP server
-    server = HTTPServer(("localhost", HTTP_PORT), DashboardHandler)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServer stopped.")
+time.sleep(0.3)
+st.rerun()
