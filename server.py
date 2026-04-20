@@ -335,8 +335,8 @@ with st.sidebar:
     st.markdown("""
     <div style="text-align:center; padding: 20px 0 10px 0;">
         <div style="font-size:2.5rem">🏥</div>
-        <div style="font-size:1.15rem; font-weight:800; color:#e8f4ff; letter-spacing:0.02em">MediWatch Pro</div>
-        <div style="font-size:0.7rem; color:#7fb3d3; letter-spacing:0.12em; text-transform:uppercase; margin-top:4px"> Wandering Patient Alert System</div>
+        <div style="font-size:1.15rem; font-weight:800; color:#e8f4ff; letter-spacing:0.02em">Wandering Patient Alert System</div>
+        <div style="font-size:0.7rem; color:#7fb3d3; letter-spacing:0.12em; text-transform:uppercase; margin-top:4px"> Patient Alert System using ESP32 module and IR Sensors</div>
     </div>
     """, unsafe_allow_html=True)
     st.divider()
