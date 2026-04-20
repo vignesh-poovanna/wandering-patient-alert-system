@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 #  PAGE CONFIG
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="MediWatch Pro — Patient Alert System",
+    page_title="Wandering Patient Alert System",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -336,7 +336,7 @@ with st.sidebar:
     <div style="text-align:center; padding: 20px 0 10px 0;">
         <div style="font-size:2.5rem">🏥</div>
         <div style="font-size:1.15rem; font-weight:800; color:#e8f4ff; letter-spacing:0.02em">MediWatch Pro</div>
-        <div style="font-size:0.7rem; color:#7fb3d3; letter-spacing:0.12em; text-transform:uppercase; margin-top:4px">Patient Alert System</div>
+        <div style="font-size:0.7rem; color:#7fb3d3; letter-spacing:0.12em; text-transform:uppercase; margin-top:4px"> Wandering Patient Alert System</div>
     </div>
     """, unsafe_allow_html=True)
     st.divider()
@@ -999,7 +999,7 @@ elif "System Info" in page:
 #  PAGE: ABOUT
 # ─────────────────────────────────────────────
 elif "About" in page:
-    st.markdown("## ℹ️ About MediWatch Pro")
+    st.markdown("## ℹ️ About Wandering Patient Alert System")
     st.markdown("<div style='color:#7fb3d3;margin-bottom:24px'>Project documentation and system architecture overview.</div>", unsafe_allow_html=True)
 
     col_desc, col_arch = st.columns([3, 2])
@@ -1008,7 +1008,7 @@ elif "About" in page:
         <div class="kpi-card">
             <h3 style="color:#e8f4ff;margin-top:0">Wandering Patient Alert System</h3>
             <p style="color:#a8c4d9;line-height:1.7">
-                The MediWatch Pro system is a real-time patient-safety solution designed to alert medical staff 
+                The Wandering Patient Alert System is a real-time patient-safety solution designed to alert medical staff 
                 when a patient unexpectedly leaves their bed. Using an ESP32 microcontroller and an infrared 
                 obstacle-avoidance sensor, the system continuously monitors bed occupancy and transmits 
                 structured JSON telemetry over USB serial at 500ms intervals.
@@ -1057,7 +1057,7 @@ elif "About" in page:
     st.markdown("""
     <div style="text-align:center;padding:30px 20px;color:#1a3a5c">
         <div style="font-size:2.5rem;margin-bottom:8px">🏥</div>
-        <div style="color:#7fb3d3;font-size:0.85rem">MediWatch Pro v2.0.0 · Built with ESP32 + Python + Streamlit</div>
+        <div style="color:#7fb3d3;font-size:0.85rem">Wandering Patient Alert System v2.0.0 · Built with ESP32 + Python + Streamlit</div>
         <div style="color:#1a3a5c;font-size:0.72rem;margin-top:6px">Real-time IoT Patient Safety Monitoring System</div>
     </div>
     """, unsafe_allow_html=True)
